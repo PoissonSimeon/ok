@@ -11,25 +11,16 @@
         
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #36393f; /* Couleur de fond style Discord */
+            background-color: #36393f;
             color: #dcddde;
-            overflow: hidden; /* Empêche le scroll global, on gère par panneau */
+            overflow: hidden;
         }
 
         /* Scrollbar personnalisée */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #2f3136;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #202225;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #18191c;
-        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #2f3136; }
+        ::-webkit-scrollbar-thumb { background: #202225; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #18191c; }
 
         /* Animation d'apparition des messages */
         @keyframes popIn {
@@ -41,7 +32,7 @@
             animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
         
-        /* Bulle d'autres utilisateurs (virtuels) */
+        /* Bulle d'autres utilisateurs */
         .other-user-bubble {
             background-color: #2f3136;
             color: #dcddde;
@@ -51,7 +42,7 @@
 
         /* Bulle de l'utilisateur (Les "ok") */
         .my-bubble {
-            background-color: #5865F2; /* Bleu Discord */
+            background-color: #5865F2;
             color: white;
             align-self: flex-end;
             border-bottom-right-radius: 0;
@@ -61,6 +52,7 @@
             filter: grayscale(100%);
             opacity: 0.5;
             cursor: not-allowed;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -78,19 +70,22 @@
 
         <!-- Zone des messages -->
         <div id="chat-container" class="flex-1 overflow-y-auto p-4 flex flex-col space-y-4">
-            <!-- Messages générés en JS iront ici -->
             <div class="text-center text-gray-500 text-xs my-4">
-                Début de la conversation le 12 Février
-            </div>
-            
-            <div class="flex flex-col space-y-1 max-w-[80%] other-user-bubble p-3 rounded-xl shadow-sm">
-                <span class="text-xs font-bold text-[#eb459e] mb-1">Pote Incompris</span>
-                <span>Eh les gars, vous avez vu la nouvelle mise à jour ? Ça a l'air ouf !</span>
+                Début de la conversation
             </div>
         </div>
 
-        <div class="p-4 bg-[#36393f] shrink-0">
-            <div class="bg-[#40444b] rounded-lg p-2 flex items-center shadow-inner">
+        <div class="p-4 bg-[#36393f] shrink-0 border-t border-[#202225]">
+            <div class="flex justify-between items-end mb-2">
+                <div class="text-xs text-gray-400 font-semibold uppercase tracking-wide">
+                    Messages à valider : <span id="pending-display" class="text-white font-bold text-sm bg-[#202225] px-2 py-0.5 rounded">1</span>
+                </div>
+                <button id="btn-ping" class="text-xs bg-[#4f545c] hover:bg-[#5d6269] text-white px-3 py-1 rounded transition flex items-center gap-1 transform active:scale-95">
+                    <i class="fa-solid fa-bell"></i> Ping le groupe
+                </button>
+            </div>
+            
+            <div id="input-container" class="bg-[#40444b] rounded-lg p-2 flex items-center shadow-inner transition-opacity duration-200">
                 <div class="flex-1 px-3 text-gray-400 select-none bg-transparent outline-none">
                     ok
                 </div>
@@ -100,12 +95,9 @@
                 </button>
             </div>
             <div class="text-center mt-2 text-xs text-gray-500">
-                Clique sur Envoyer pour générer des 'ok'.
+                Il faut qu'il y ait des messages en attente pour envoyer 'ok'.
             </div>
         </div>
-        
-        <!-- Particules de clic (cachées, générées en JS) -->
-        <div id="particles-container" class="absolute inset-0 pointer-events-none z-50 overflow-hidden"></div>
     </main>
 
     <aside class="w-full md:w-80 lg:w-96 bg-[#2f3136] h-full flex flex-col shrink-0 overflow-y-auto">
@@ -114,11 +106,15 @@
             <h2 class="text-xs uppercase font-bold text-gray-400 mb-2 tracking-wider">Statistiques du Spam</h2>
             <div class="text-3xl font-bold text-white mb-1 flex items-baseline gap-2">
                 <span id="score-display">0</span>
-                <span class="text-sm font-normal text-gray-400">ok</span>
+                <span class="text-sm font-normal text-gray-400">ok générés</span>
             </div>
             <div class="text-sm text-[#43b581] font-semibold flex items-center gap-1">
                 <i class="fa-solid fa-arrow-trend-up"></i>
                 <span id="cps-display">0</span> ok / seconde
+            </div>
+            <div class="text-sm text-[#eb459e] font-semibold flex items-center gap-1 mt-1">
+                <i class="fa-solid fa-comment-dots"></i>
+                <span id="msg-ps-display">0</span> msg entrants / sec
             </div>
         </div>
 
@@ -126,7 +122,7 @@
         <div class="p-4 flex-1">
             <h2 class="text-xs uppercase font-bold text-gray-400 mb-4 tracking-wider">Boutique de l'Automatisation</h2>
             <div id="shop-container" class="space-y-3">
-                <!-- Les éléments de la boutique seront générés par JS -->
+                <!-- Généré par JS -->
             </div>
         </div>
     </aside>
@@ -136,56 +132,91 @@
         let gameState = {
             oks: 0,
             oksPerSecond: 0,
+            incomingPerSecond: 0,
+            pendingMessages: 1, // 1 message au lancement pour commencer
             clickPower: 1,
             totalClicks: 0
         };
 
-        // Définition des bâtiments (producteurs)
-        const producers = [
-            { id: 'ctrlv', name: 'Copier-Coller (Ctrl+V)', desc: 'Un classique. Permet de gagner de précieux dixièmes de seconde.', baseCost: 15, baseProd: 0.5, count: 0, icon: 'fa-clipboard', color: 'text-gray-300' },
-            { id: 'macro', name: 'Macro Clavier', desc: 'Un petit script sur ta souris gamer pour spammer à ta place.', baseCost: 100, baseProd: 4, count: 0, icon: 'fa-keyboard', color: 'text-blue-400' },
-            { id: 'brother', name: 'Le Petit Frère', desc: 'Soudoyé avec des bonbons pour rester devant l\'écran.', baseCost: 1100, baseProd: 12, count: 0, icon: 'fa-child', color: 'text-yellow-400' },
-            { id: 'bot', name: 'Bot Auto-Répondeur', desc: 'Script Python connecté à l\'API pour répondre instantanément.', baseCost: 12000, baseProd: 60, count: 0, icon: 'fa-robot', color: 'text-green-400' },
-            { id: 'raid', name: 'Raid Multi-Comptes', desc: 'Des centaines d\'alts synchronisés pour inonder le serveur.', baseCost: 130000, baseProd: 400, count: 0, icon: 'fa-users', color: 'text-red-400' },
-            { id: 'ai', name: 'IA Générative de OK', desc: 'Un réseau de neurones entraîné uniquement pour valider des propos.', baseCost: 1500000, baseProd: 5000, count: 0, icon: 'fa-brain', color: 'text-purple-400' }
+        // Données pour le faux tchat
+        const friendNames = ["GamerDu77", "DarkSasuke", "Marie", "LeFou", "Admin", "Pote Incompris", "Bob", "Alice", "xX_Sniper_Xx"];
+        const chatMessages = [
+            "eh vous faites quoi ce soir ?", "j'ai faim", "qui pour une game ?", "regardez cette vidéo mdr",
+            "je suis fatigué", "quelqu'un a compris le cours ?", "il pleut chez vous ?", "j'ai raté mon bus",
+            "vous avez vu le dernier épisode ?", "mon pc bug", "je lag", "brb", "re", "mdrrrr",
+            "qui est chaud ?", "venez vocal", "je vais manger", "a+", "bonne nuit", "yo",
+            "c'est quand les vacs ?", "j'ai plus de batterie", "regardez mon chat", "j'ai eu une bonne note",
+            "je suis en retard", "vous faites quoi ?", "qui joue ?", "je lance le jeu", "attendez moi",
+            "je dois déco", "j'ai trop mangé", "quelqu'un a un chargeur ?", "c'est abusé", "dinguerie",
+            "je suis mort", "jPP", "bref", "du coup on fait quoi ?", "je m'ennuie", "vous êtes morts ?",
+            "allo ?", "quelqu'un est là ?", "répondez wesh", "je parle dans le vide", "j'ai acheté un truc",
+            "regardez ça", "c'est quoi ce bordel", "je comprends rien", "aidez moi", "j'arrive",
+            "arrête avec tes OK", "t'es lourd", "on va le ban ce mec", "sinon vous en pensez quoi de la maj ?"
         ];
 
-        // Éléments du DOM
+        // Définition des bâtiments (mix de type OK et MSG)
+        const producers = [
+            { id: 'ctrlv', type: 'ok', name: 'Copier-Coller (Ctrl+V)', desc: 'Gagne du temps.', baseCost: 15, baseProd: 0.5, count: 0, icon: 'fa-clipboard', color: 'text-gray-300' },
+            { id: 'pote1', type: 'msg', name: 'Pote qui s\'ennuie', desc: 'Envoie des messages pour rien dire.', baseCost: 20, baseProd: 0.5, count: 0, icon: 'fa-user', color: 'text-blue-300' },
+            { id: 'macro', type: 'ok', name: 'Macro Clavier', desc: 'Spam automatique.', baseCost: 100, baseProd: 4, count: 0, icon: 'fa-keyboard', color: 'text-blue-400' },
+            { id: 'drama', type: 'msg', name: 'Lancer un drama', desc: 'Avalanche de messages garantie.', baseCost: 150, baseProd: 5, count: 0, icon: 'fa-fire', color: 'text-orange-400' },
+            { id: 'brother', type: 'ok', name: 'Le Petit Frère', desc: 'Soudoyé pour cliquer.', baseCost: 1100, baseProd: 12, count: 0, icon: 'fa-child', color: 'text-yellow-400' },
+            { id: 'leak', type: 'msg', name: 'Leak de jeu vidéo', desc: 'Le serveur s\'enflamme de discussions.', baseCost: 1500, baseProd: 15, count: 0, icon: 'fa-gamepad', color: 'text-purple-500' },
+            { id: 'bot', type: 'ok', name: 'Bot Auto-Répondeur', desc: 'Script Python de validation.', baseCost: 12000, baseProd: 60, count: 0, icon: 'fa-robot', color: 'text-green-400' },
+            { id: 'hack', type: 'msg', name: 'Ping @everyone', desc: 'Réveille absolument tout le monde.', baseCost: 15000, baseProd: 80, count: 0, icon: 'fa-bell', color: 'text-red-500' },
+            { id: 'raid', type: 'ok', name: 'Raid Multi-Comptes', desc: 'Synchronisation d\'alts.', baseCost: 130000, baseProd: 400, count: 0, icon: 'fa-users', color: 'text-red-400' },
+            { id: 'bot_raid', type: 'msg', name: 'Raid de Bots Spammeurs', desc: 'Faux comptes inondant le chat.', baseCost: 150000, baseProd: 500, count: 0, icon: 'fa-biohazard', color: 'text-pink-500' },
+            { id: 'ai', type: 'ok', name: 'IA Générative', desc: 'Réseau de neurones approbateur.', baseCost: 1500000, baseProd: 5000, count: 0, icon: 'fa-brain', color: 'text-purple-400' }
+        ];
+
         const elScore = document.getElementById('score-display');
         const elCps = document.getElementById('cps-display');
+        const elMsgPs = document.getElementById('msg-ps-display');
+        const elPending = document.getElementById('pending-display');
         const btnSend = document.getElementById('btn-send');
+        const inputContainer = document.getElementById('input-container');
         const shopContainer = document.getElementById('shop-container');
         const chatContainer = document.getElementById('chat-container');
 
         // Effet sonore d'envoi de message
         const sendSound = new Audio('discord-send.mp3');
-        // Le volume sera géré directement sur les clones
+        sendSound.volume = 0.5;
 
-        // Formater les grands nombres (ex: 1 000 000)
         function formatNumber(num) {
             return Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
         }
 
-        // Calculer le coût actuel d'un bâtiment (Formule classique des idle games)
         function getCost(producer) {
             return Math.floor(producer.baseCost * Math.pow(1.15, producer.count));
         }
 
-        // Recalculer la production par seconde
         function updateCPS() {
             let cps = 0;
+            let msgPs = 0;
             producers.forEach(p => {
-                cps += p.count * p.baseProd;
+                if(p.type === 'ok') cps += p.count * p.baseProd;
+                if(p.type === 'msg') msgPs += p.count * p.baseProd;
             });
             gameState.oksPerSecond = cps;
+            gameState.incomingPerSecond = msgPs;
             elCps.innerText = (Math.round(cps * 10) / 10).toLocaleString('fr-FR');
+            elMsgPs.innerText = (Math.round(msgPs * 10) / 10).toLocaleString('fr-FR');
         }
 
-        // Mettre à jour l'affichage principal
         function updateDisplay() {
             elScore.innerText = formatNumber(gameState.oks);
+            elPending.innerText = Math.floor(gameState.pendingMessages).toLocaleString('fr-FR');
             
-            // Mettre à jour l'état des boutons de la boutique (grisé si pas assez de fonds)
+            // Verrouiller/Déverrouiller le bouton envoyer
+            if (gameState.pendingMessages >= 1) {
+                btnSend.classList.remove('disabled-btn');
+                inputContainer.classList.remove('opacity-50');
+            } else {
+                btnSend.classList.add('disabled-btn');
+                inputContainer.classList.add('opacity-50');
+            }
+            
+            // Mettre à jour la boutique
             producers.forEach(p => {
                 const btn = document.getElementById(`btn-buy-${p.id}`);
                 if(btn) {
@@ -199,14 +230,12 @@
                         btn.classList.replace('bg-[#40444b]', 'bg-[#202225]');
                         btn.classList.remove('hover:bg-[#4f545c]');
                     }
-                    // Maj du prix et de la quantité affichés
                     document.getElementById(`cost-${p.id}`).innerText = formatNumber(cost);
                     document.getElementById(`count-${p.id}`).innerText = p.count;
                 }
             });
         }
 
-        // Générer le HTML de la boutique
         function renderShop() {
             shopContainer.innerHTML = '';
             producers.forEach(p => {
@@ -216,6 +245,10 @@
                 btn.className = `flex items-center justify-between p-3 rounded-lg cursor-pointer transition bg-[#202225] select-none shadow-sm`;
                 btn.onclick = () => buyProducer(p.id);
                 
+                const badge = p.type === 'ok' 
+                    ? `<span class="text-[9px] font-bold bg-[#5865F2] text-white px-1.5 py-0.5 rounded">OK</span>`
+                    : `<span class="text-[9px] font-bold bg-[#eb459e] text-white px-1.5 py-0.5 rounded">MSG</span>`;
+
                 btn.innerHTML = `
                     <div class="flex items-center gap-4">
                         <div class="w-10 h-10 rounded-full bg-[#2f3136] flex items-center justify-center text-xl shadow-inner border border-[#18191c]">
@@ -223,10 +256,9 @@
                         </div>
                         <div>
                             <h3 class="font-bold text-gray-200 text-sm">${p.name}</h3>
-                            <div class="text-xs text-[#43b581] flex items-center gap-1">
-                                <!-- Badge OK remplaçant le cookie -->
-                                <span class="text-[9px] font-bold bg-[#5865F2] text-white px-1 py-0.5 rounded">OK</span>
-                                <span id="cost-${p.id}" class="font-bold">${formatNumber(cost)}</span>
+                            <div class="text-xs flex items-center gap-1 mt-1">
+                                ${badge}
+                                <span id="cost-${p.id}" class="text-white font-bold ml-1">${formatNumber(cost)}</span>
                             </div>
                         </div>
                     </div>
@@ -240,7 +272,6 @@
             updateDisplay();
         }
 
-        // Acheter un producteur
         function buyProducer(id) {
             const producer = producers.find(p => p.id === id);
             const cost = getCost(producer);
@@ -251,137 +282,150 @@
                 updateCPS();
                 updateDisplay();
                 
-                // Petit effet de feedback
                 const btn = document.getElementById(`btn-buy-${id}`);
-                btn.style.transform = 'scale(0.97)';
-                setTimeout(() => btn.style.transform = 'scale(1)', 100);
+                if(btn) {
+                    btn.style.transform = 'scale(0.97)';
+                    setTimeout(() => btn.style.transform = 'scale(1)', 100);
+                }
             }
         }
 
-        // Ajouter visuellement un message dans le tchat
         let messageCount = 0;
-        const MAX_MESSAGES_IN_DOM = 30; // Pour éviter de faire lagger le navigateur
+        const MAX_MESSAGES_IN_DOM = 30;
 
         function addChatMessage(isManual = false) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `chat-bubble p-3 rounded-xl shadow-sm text-sm flex flex-col space-y-1 my-bubble`;
             
-            // Variations humoristiques très rares
             let text = "ok";
-            const rand = Math.random();
-            if(rand > 0.99) text = "OK";
-            if(rand > 0.999) text = "ok.";
+            if(Math.random() > 0.99) text = "OK";
+            if(Math.random() > 0.999) text = "ok.";
             
             msgDiv.innerHTML = `<span>${text}</span>`;
-            
             chatContainer.appendChild(msgDiv);
             messageCount++;
 
-            // Jouer le son avec la technique du clone pour permettre la superposition !
+            // Audio superposé
             const soundClone = sendSound.cloneNode();
             soundClone.volume = 0.5;
-            soundClone.play().catch(err => console.log("Attente d'interaction utilisateur pour l'audio."));
+            soundClone.play().catch(() => {});
 
-            // Animation du scroll vers le bas
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
-            // Nettoyer les vieux messages pour les perfs
             if (messageCount > MAX_MESSAGES_IN_DOM) {
-                if (chatContainer.children.length > 3) { // Garder les messages d'intro
-                    chatContainer.removeChild(chatContainer.children[2]);
+                if (chatContainer.children.length > 2) { 
+                    chatContainer.removeChild(chatContainer.children[1]);
                     messageCount--;
                 }
             }
         }
-        
-        // Ajouter de temps en temps un message agacé d'un "autre" membre
-        function triggerRandomEvent() {
-            if(gameState.oksPerSecond < 5) return; // Seulement quand on spamme un peu
-            
-            const complaints = [
-                "arrête avec tes OK",
-                "t'es lourd",
-                "on va le ban ce mec, ah merde c'est vrai c'est lui l'admin",
-                "J",
-                "ok",
-                "sinon vous en pensez quoi de la mise à jour ?"
-            ];
-            
+
+        function addIncomingMessage(playAudio = true) {
             const msgDiv = document.createElement('div');
-            msgDiv.className = `chat-bubble p-3 rounded-xl shadow-sm text-sm flex flex-col space-y-1 other-user-bubble max-w-[80%] mt-4`;
+            msgDiv.className = `chat-bubble p-3 rounded-xl shadow-sm text-sm flex flex-col space-y-1 other-user-bubble max-w-[80%] mt-2`;
             
-            const randomComplaint = complaints[Math.floor(Math.random() * complaints.length)];
+            const randomMsg = chatMessages[Math.floor(Math.random() * chatMessages.length)];
+            const randomName = friendNames[Math.floor(Math.random() * friendNames.length)];
+            const colors = ['#eb459e', '#5865F2', '#43b581', '#faa61a', '#f04747'];
+            const nameColor = colors[Math.floor(Math.random() * colors.length)];
             
             msgDiv.innerHTML = `
-                <span class="text-xs font-bold text-[#eb459e] mb-1">Pote Incompris</span>
-                <span>${randomComplaint}</span>
+                <span class="text-xs font-bold mb-1" style="color: ${nameColor}">${randomName}</span>
+                <span>${randomMsg}</span>
             `;
             
             chatContainer.appendChild(msgDiv);
+            messageCount++;
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
-            // Jouer le son pour les messages des autres membres (clone)
-            const soundClone = sendSound.cloneNode();
-            soundClone.volume = 0.5;
-            soundClone.play().catch(err => {});
+            if (playAudio) {
+                const soundClone = sendSound.cloneNode();
+                soundClone.volume = 0.5;
+                soundClone.play().catch(() => {});
+            }
+
+            if (messageCount > MAX_MESSAGES_IN_DOM) {
+                if (chatContainer.children.length > 2) {
+                    chatContainer.removeChild(chatContainer.children[1]);
+                    messageCount--;
+                }
+            }
         }
 
-        // Clic manuel
         function clickOk() {
-            gameState.oks += gameState.clickPower;
-            gameState.totalClicks++;
-            
-            addChatMessage(true);
-            updateDisplay();
+            if (gameState.pendingMessages >= 1) {
+                gameState.pendingMessages -= 1;
+                gameState.oks += gameState.clickPower;
+                gameState.totalClicks++;
+                addChatMessage(true);
+                updateDisplay();
+            }
         }
 
-        // Event listener pour le bouton et la touche Entrée
+        // Listeners boutons
+        document.getElementById('btn-ping').addEventListener('click', () => {
+            gameState.pendingMessages += 1;
+            addIncomingMessage(true);
+            updateDisplay();
+            const btnPing = document.getElementById('btn-ping');
+            btnPing.classList.add('scale-95');
+            setTimeout(() => btnPing.classList.remove('scale-95'), 100);
+        });
+
         btnSend.addEventListener('click', clickOk);
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                clickOk();
-                // Animation du bouton
-                btnSend.classList.add('bg-[#4752C4]', 'scale-95');
-                setTimeout(() => btnSend.classList.remove('bg-[#4752C4]', 'scale-95'), 100);
+                if(gameState.pendingMessages >= 1) {
+                    clickOk();
+                    btnSend.classList.add('bg-[#4752C4]', 'scale-95');
+                    setTimeout(() => btnSend.classList.remove('bg-[#4752C4]', 'scale-95'), 100);
+                }
             }
         });
 
-        // La boucle de jeu (tourne 10 fois par seconde pour plus de fluidité visuelle)
+        // Boucle de jeu
         let visualChatAccumulator = 0;
+        let incomingAccumulator = 0;
         
         setInterval(() => {
-            if (gameState.oksPerSecond > 0) {
-                // Ajouter la production
-                gameState.oks += gameState.oksPerSecond / 10;
-                updateDisplay();
+            // 1. Messages entrants auto
+            if (gameState.incomingPerSecond > 0) {
+                incomingAccumulator += gameState.incomingPerSecond / 10;
+                if (incomingAccumulator >= 1) {
+                    let msgsToGenerate = Math.floor(incomingAccumulator);
+                    gameState.pendingMessages += msgsToGenerate;
+                    
+                    let visualCount = Math.min(msgsToGenerate, 3); 
+                    for(let i=0; i < visualCount; i++) addIncomingMessage(true);
+                    
+                    incomingAccumulator -= msgsToGenerate;
+                    updateDisplay();
+                }
+            }
 
-                // Gestion des bulles de tchat auto (indépendante du DOM brut)
-                visualChatAccumulator += gameState.oksPerSecond / 10;
+            // 2. OK automatiques (limités par les messages en attente)
+            if (gameState.oksPerSecond > 0 && gameState.pendingMessages > 0) {
+                let possibleOks = gameState.oksPerSecond / 10;
+                let actualOks = Math.min(possibleOks, gameState.pendingMessages);
                 
-                // Si on a accumulé plus de 1 'ok', on l'affiche (limité pour éviter le flood visuel absolu)
+                gameState.oks += actualOks;
+                gameState.pendingMessages -= actualOks;
+                visualChatAccumulator += actualOks;
+                
                 if (visualChatAccumulator >= 1) {
                     let msgsToGenerate = Math.floor(visualChatAccumulator);
-                    // On plafonne visuellement à 3 messages par tick (30/sec) pour ne pas tuer le navigateur
-                    if(msgsToGenerate > 3) msgsToGenerate = 3; 
+                    let visualCount = Math.min(msgsToGenerate, 3);
                     
-                    for(let i=0; i < msgsToGenerate; i++) {
-                        addChatMessage(false);
-                    }
-                    visualChatAccumulator -= Math.floor(visualChatAccumulator);
+                    for(let i=0; i < visualCount; i++) addChatMessage(false);
+                    visualChatAccumulator -= msgsToGenerate;
                 }
+                updateDisplay();
             }
         }, 100);
 
-        // Événements aléatoires (toutes les ~15 secondes)
-        setInterval(() => {
-            if (Math.random() > 0.7 && gameState.oks > 50) {
-                triggerRandomEvent();
-            }
-        }, 15000);
-
-        // Initialisation au lancement
+        // Lancement
         renderShop();
-        
+        addIncomingMessage(false); // Premier message silencieux
     </script>
 </body>
 </html>
