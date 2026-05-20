@@ -330,6 +330,10 @@
             chatContainer.appendChild(msgDiv);
             messageCount++;
 
+            // Jouer le son à chaque ajout de message dans le tchat (manuel ou automatique)
+            sendSound.currentTime = 0; 
+            sendSound.play().catch(err => console.log("Attente d'interaction utilisateur pour l'audio."));
+
             // Animation du scroll vers le bas
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
@@ -367,6 +371,10 @@
             
             chatContainer.appendChild(msgDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            // Jouer le son pour les messages des autres membres
+            sendSound.currentTime = 0; 
+            sendSound.play().catch(err => {});
         }
 
         // Clic manuel
@@ -374,10 +382,7 @@
             gameState.oks += gameState.clickPower;
             gameState.totalClicks++;
             
-            // Jouer le son de notification
-            // On remet à 0 pour pouvoir superposer les sons si on spamme vite
-            sendSound.currentTime = 0; 
-            sendSound.play().catch(err => console.log("Le navigateur bloque l'autoplay audio avant la première interaction."));
+            // L'appel du son a été retiré d'ici car il est maintenant géré par addChatMessage()
 
             addChatMessage(true);
             updateDisplay();
