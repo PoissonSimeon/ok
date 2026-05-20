@@ -211,6 +211,10 @@
         const shopContainer = document.getElementById('shop-container');
         const chatContainer = document.getElementById('chat-container');
 
+        // Effet sonore d'envoi de message
+        const sendSound = new Audio('discord-send.mp3');
+        sendSound.volume = 0.5; // Volume réduit de moitié pour éviter la saturation
+
         // Formater les grands nombres (ex: 1 000 000)
         function formatNumber(num) {
             return Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -369,6 +373,12 @@
         function clickOk() {
             gameState.oks += gameState.clickPower;
             gameState.totalClicks++;
+            
+            // Jouer le son de notification
+            // On remet à 0 pour pouvoir superposer les sons si on spamme vite
+            sendSound.currentTime = 0; 
+            sendSound.play().catch(err => console.log("Le navigateur bloque l'autoplay audio avant la première interaction."));
+
             addChatMessage(true);
             updateDisplay();
         }
