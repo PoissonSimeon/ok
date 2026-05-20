@@ -142,66 +142,12 @@
 
         // Définition des bâtiments (producteurs)
         const producers = [
-            {
-                id: 'ctrlv',
-                name: 'Copier-Coller (Ctrl+V)',
-                desc: 'Un classique. Permet de gagner de précieux dixièmes de seconde.',
-                baseCost: 15,
-                baseProd: 0.5,
-                count: 0,
-                icon: 'fa-clipboard',
-                color: 'text-gray-300'
-            },
-            {
-                id: 'macro',
-                name: 'Macro Clavier',
-                desc: 'Un petit script sur ta souris gamer pour spammer à ta place.',
-                baseCost: 100,
-                baseProd: 4,
-                count: 0,
-                icon: 'fa-keyboard',
-                color: 'text-blue-400'
-            },
-            {
-                id: 'brother',
-                name: 'Le Petit Frère',
-                desc: 'Soudoyé avec des bonbons pour rester devant l\'écran.',
-                baseCost: 1100,
-                baseProd: 12,
-                count: 0,
-                icon: 'fa-child',
-                color: 'text-yellow-400'
-            },
-            {
-                id: 'bot',
-                name: 'Bot Auto-Répondeur',
-                desc: 'Script Python connecté à l\'API pour répondre instantanément.',
-                baseCost: 12000,
-                baseProd: 60,
-                count: 0,
-                icon: 'fa-robot',
-                color: 'text-green-400'
-            },
-            {
-                id: 'raid',
-                name: 'Raid Multi-Comptes',
-                desc: 'Des centaines d\'alts synchronisés pour inonder le serveur.',
-                baseCost: 130000,
-                baseProd: 400,
-                count: 0,
-                icon: 'fa-users',
-                color: 'text-red-400'
-            },
-            {
-                id: 'ai',
-                name: 'IA Générative de OK',
-                desc: 'Un réseau de neurones entraîné uniquement pour valider des propos.',
-                baseCost: 1500000,
-                baseProd: 5000,
-                count: 0,
-                icon: 'fa-brain',
-                color: 'text-purple-400'
-            }
+            { id: 'ctrlv', name: 'Copier-Coller (Ctrl+V)', desc: 'Un classique. Permet de gagner de précieux dixièmes de seconde.', baseCost: 15, baseProd: 0.5, count: 0, icon: 'fa-clipboard', color: 'text-gray-300' },
+            { id: 'macro', name: 'Macro Clavier', desc: 'Un petit script sur ta souris gamer pour spammer à ta place.', baseCost: 100, baseProd: 4, count: 0, icon: 'fa-keyboard', color: 'text-blue-400' },
+            { id: 'brother', name: 'Le Petit Frère', desc: 'Soudoyé avec des bonbons pour rester devant l\'écran.', baseCost: 1100, baseProd: 12, count: 0, icon: 'fa-child', color: 'text-yellow-400' },
+            { id: 'bot', name: 'Bot Auto-Répondeur', desc: 'Script Python connecté à l\'API pour répondre instantanément.', baseCost: 12000, baseProd: 60, count: 0, icon: 'fa-robot', color: 'text-green-400' },
+            { id: 'raid', name: 'Raid Multi-Comptes', desc: 'Des centaines d\'alts synchronisés pour inonder le serveur.', baseCost: 130000, baseProd: 400, count: 0, icon: 'fa-users', color: 'text-red-400' },
+            { id: 'ai', name: 'IA Générative de OK', desc: 'Un réseau de neurones entraîné uniquement pour valider des propos.', baseCost: 1500000, baseProd: 5000, count: 0, icon: 'fa-brain', color: 'text-purple-400' }
         ];
 
         // Éléments du DOM
@@ -213,7 +159,7 @@
 
         // Effet sonore d'envoi de message
         const sendSound = new Audio('discord-send.mp3');
-        sendSound.volume = 0.5; // Volume réduit de moitié pour éviter la saturation
+        // Le volume sera géré directement sur les clones
 
         // Formater les grands nombres (ex: 1 000 000)
         function formatNumber(num) {
@@ -278,7 +224,8 @@
                         <div>
                             <h3 class="font-bold text-gray-200 text-sm">${p.name}</h3>
                             <div class="text-xs text-[#43b581] flex items-center gap-1">
-                                <i class="fa-solid fa-cookie-bite"></i>
+                                <!-- Badge OK remplaçant le cookie -->
+                                <span class="text-[9px] font-bold bg-[#5865F2] text-white px-1 py-0.5 rounded">OK</span>
                                 <span id="cost-${p.id}" class="font-bold">${formatNumber(cost)}</span>
                             </div>
                         </div>
@@ -330,9 +277,10 @@
             chatContainer.appendChild(msgDiv);
             messageCount++;
 
-            // Jouer le son à chaque ajout de message dans le tchat (manuel ou automatique)
-            sendSound.currentTime = 0; 
-            sendSound.play().catch(err => console.log("Attente d'interaction utilisateur pour l'audio."));
+            // Jouer le son avec la technique du clone pour permettre la superposition !
+            const soundClone = sendSound.cloneNode();
+            soundClone.volume = 0.5;
+            soundClone.play().catch(err => console.log("Attente d'interaction utilisateur pour l'audio."));
 
             // Animation du scroll vers le bas
             chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -372,9 +320,10 @@
             chatContainer.appendChild(msgDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
-            // Jouer le son pour les messages des autres membres
-            sendSound.currentTime = 0; 
-            sendSound.play().catch(err => {});
+            // Jouer le son pour les messages des autres membres (clone)
+            const soundClone = sendSound.cloneNode();
+            soundClone.volume = 0.5;
+            soundClone.play().catch(err => {});
         }
 
         // Clic manuel
@@ -382,8 +331,6 @@
             gameState.oks += gameState.clickPower;
             gameState.totalClicks++;
             
-            // L'appel du son a été retiré d'ici car il est maintenant géré par addChatMessage()
-
             addChatMessage(true);
             updateDisplay();
         }
